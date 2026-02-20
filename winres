@@ -1,0 +1,9 @@
+[Metadata]
+Name = LingPDF
+Version = 0.1.0
+CompanyName = LingPDF
+FileDescription = A lightweight PDF reader
+ProductName = LingPDF
+
+[Resources]
+Icon = resources/windows/icon.ico

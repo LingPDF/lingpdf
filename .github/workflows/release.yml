@@ -1,0 +1,313 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build Release Assets
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-mac-arm64.tgz
+            pdfium_lib: libpdfium.dylib
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x86_64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-mac-x64.tgz
+            pdfium_lib: libpdfium.dylib
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x86_64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-linux-x64.tgz
+            pdfium_lib: libpdfium.so
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: linux-aarch64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-linux-arm64.tgz
+            pdfium_lib: libpdfium.so
+            use_cross: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x86_64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-win-x64.tgz
+            pdfium_lib: pdfium.dll
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            name: windows-aarch64
+            pdfium_url: https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7690/pdfium-win-arm64.tgz
+            pdfium_lib: pdfium.dll
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zip (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          choco install zip -y
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-build-
+
+      - name: Download Pdfium library
+        shell: bash
+        run: |
+          mkdir -p lib
+          curl -L -o pdfium.tgz "${{ matrix.pdfium_url }}"
+          tar -xzf pdfium.tgz
+          find . -type f \( -name "*.dylib" -o -name "*.so" -o -name "*.dll" \) -exec mv {} lib/ \; 2>/dev/null || true
+          ls -la lib/
+
+      - name: Build release (cross)
+        if: matrix.use_cross == true
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build release (cargo)
+        if: matrix.use_cross != true
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package macOS app
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          APP_NAME="LingPDF"
+          APP_BUNDLE="dist/${APP_NAME}.app"
+          BINARY="target/${{ matrix.target }}/release/lingpdf"
+          
+          rm -rf "$APP_BUNDLE"
+          mkdir -p "$APP_BUNDLE/Contents/MacOS"
+          mkdir -p "$APP_BUNDLE/Contents/Resources"
+          
+          cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/"
+          chmod +x "$APP_BUNDLE/Contents/MacOS/lingpdf"
+          
+          if [ -f "lib/${{ matrix.pdfium_lib }}" ]; then
+            cp "lib/${{ matrix.pdfium_lib }}" "$APP_BUNDLE/Contents/MacOS/"
+          fi
+          
+          # Copy locales
+          if [ -d "locales" ]; then
+            cp -r locales "$APP_BUNDLE/Contents/Resources/"
+          fi
+          
+          cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>lingpdf</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.lingpdf.app</string>
+              <key>CFBundleName</key>
+              <string>LingPDF</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${GITHUB_REF_NAME#v}</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create DMG
+          hdiutil create -volname "LingPDF" -srcfolder "$APP_BUNDLE" -ov -format UDZO -o "dist/LingPDF-${{ matrix.name }}.dmg"
+          
+          # Also create ZIP in dist folder
+          cd dist
+          zip -r "LingPDF-${{ matrix.name }}.zip" "${APP_NAME}.app"
+          cd ..
+
+      - name: Package Linux AppImage
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          PACKAGE_DIR="dist/lingpdf-${{ matrix.name }}"
+          BINARY="target/${{ matrix.target }}/release/lingpdf"
+
+          mkdir -p "$PACKAGE_DIR"
+          cp "$BINARY" "$PACKAGE_DIR/"
+          chmod +x "$PACKAGE_DIR/lingpdf"
+
+          if [ -f "lib/${{ matrix.pdfium_lib }}" ]; then
+            cp "lib/${{ matrix.pdfium_lib }}" "$PACKAGE_DIR/"
+          fi
+
+          # Copy locales
+          if [ -d "locales" ]; then
+            cp -r locales "$PACKAGE_DIR/"
+          fi
+
+          # Create AppDir structure for AppImage
+          APPDIR="lingpdf.AppDir"
+          mkdir -p "$APPDIR/usr/bin"
+          mkdir -p "$APPDIR/usr/lib"
+          mkdir -p "$APPDIR/apprun/graphics"
+
+          cp "$PACKAGE_DIR/lingpdf" "$APPDIR/usr/bin/"
+          if [ -f "lib/${{ matrix.pdfium_lib }}" ]; then
+            cp "lib/${{ matrix.pdfium_lib }}" "$APPDIR/usr/lib/"
+          fi
+
+          # Copy locales to AppDir
+          if [ -d "locales" ]; then
+            cp -r locales "$APPDIR/usr/share/" 2>/dev/null || cp -r locales "$APPDIR/"
+          fi
+
+          # Create AppRun
+          cat > "$APPDIR/AppRun" << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          DIR=$(dirname "$SELF")
+          export PATH="$DIR/usr/bin:$PATH"
+          export LD_LIBRARY_PATH="$DIR/usr/lib:$LD_LIBRARY_PATH"
+          exec "$DIR/usr/bin/lingpdf" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+
+          # Create desktop file
+          cat > "$APPDIR/lingpdf.desktop" << 'EOF'
+          [Desktop Entry]
+          Name=LingPDF
+          Comment=A lightweight PDF reader
+          Exec=lingpdf
+          Icon=lingpdf
+          Terminal=false
+          Type=Application
+          Categories=Office;Viewer;
+          EOF
+
+          # Copy icon if available
+          if [ -f "resources/icon.svg" ]; then
+            cp "resources/icon.svg" "$APPDIR/apprun/graphics/"
+          fi
+
+          # Create AppImage if appimagetool is available
+          if command -v appimagetool &> /dev/null; then
+            appimagetool "$APPDIR" "dist/LingPDF-${{ matrix.name }}.AppImage"
+          fi
+
+          # Create tarball in dist folder
+          cd dist
+          tar -czvf "lingpdf-${{ matrix.name }}.tar.gz" "lingpdf-${{ matrix.name }}"
+          cd ..
+
+      - name: Install WiX
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          dotnet tool install --global wix
+          wix extension add WixUI.wixext
+
+      - name: Package Windows
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          PACKAGE_DIR="dist/lingpdf-${{ matrix.name }}"
+          BINARY="target/${{ matrix.target }}/release/lingpdf.exe"
+
+          mkdir -p "$PACKAGE_DIR"
+          cp "$BINARY" "$PACKAGE_DIR/"
+
+          if [ -f "lib/${{ matrix.pdfium_lib }}" ]; then
+            cp "lib/${{ matrix.pdfium_lib }}" "$PACKAGE_DIR/"
+          fi
+
+          # Copy locales
+          if [ -d "locales" ]; then
+            cp -r locales "$PACKAGE_DIR/"
+          fi
+
+          if [ -f "resources/windows/icon.ico" ]; then
+            cp "resources/windows/icon.ico" "$PACKAGE_DIR/"
+          fi
+
+          # Create ZIP in dist folder
+          cd dist
+          zip -r "lingpdf-${{ matrix.name }}.zip" "lingpdf-${{ matrix.name }}"
+          cd ..
+
+      - name: Build Windows MSI
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          # Build MSI using WiX
+          wix build -arch x64 -o "dist/LingPDF-${{ matrix.name }}.msi" wix/lingpdf.wxs
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lingpdf-${{ matrix.name }}
+          path: |
+            dist/*.zip
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.tar.gz
+            dist/*.msi
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: LingPDF ${{ github.ref_name }}
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
+            artifacts/**/*.tar.gz
+            artifacts/**/*.msi
+          draft: false
+          prerelease: false
+          generate_release_notes: true

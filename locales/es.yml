@@ -1,0 +1,80 @@
+_lang: Español
+
+app_name: LingPDF
+
+menu:
+  file: Archivo
+  open: Abrir...
+  open_file_dialog: Seleccionar archivo PDF
+  quit: Salir
+  view: Ver
+  zoom_in: Acercar
+  zoom_out: Alejar
+  reset_zoom: Tamaño real
+  next_page: Página siguiente
+  prev_page: Página anterior
+  theme: Tema
+  theme_light: Claro
+  theme_dark: Oscuro
+  language: Idioma
+  language_en: English
+  language_zh: 中文
+  language_es: Español
+  print: Imprimir...
+  close_tab: Cerrar pestaña
+  save_as: Guardar como...
+  fit_width: Ajustar a ancho
+  fit_page: Ajustar a página
+  rotate_clockwise: Girar en sentido horario
+  rotate_counter_clockwise: Girar en sentido antihorario
+  full_screen: Pantalla completa
+  toggle_sidebar: Alternar barra lateral
+  toggle_theme: Alternar tema
+  go: Ir
+  first_page: Primera página
+  last_page: Última página
+  go_to_page: Ir a página...
+  favorites: Favoritos
+  add_to_favorites: Agregar a favoritos
+  help: Ayuda
+  about: Acerca de LingPDF
+
+toolbar:
+  open: Abrir PDF
+  prev: Anterior
+  next: Siguiente
+  zoom_out: Alejar
+  zoom_in: Acercar
+
+status:
+  ready: Listo
+  page: Página
+  zoom: Zoom
+
+pdf:
+  drag_hint: Arrastra y suelta un archivo PDF aquí
+  or_shortcut: o presiona Ctrl+O / Cmd+O para abrir un archivo
+  loading: Cargando...
+  no_outline: Sin esquema
+
+sidebar:
+  outline: Esquema
+  recent_files: Archivos Recientes
+  no_recent_files: Sin archivos recientes
+
+page:
+  label: Página
+  go_to_title: Ir a Página
+  go_to_prompt: Ingrese número de página
+
+welcome_message: Abre un archivo PDF para comenzar a leer
+
+scroll_mode:
+  page: Página
+  smooth: Suave
+
+print:
+  title: Imprimir
+  no_printer: No hay impresora disponible
+  error: Error de impresión
+  success: Trabajo de impresión enviado
