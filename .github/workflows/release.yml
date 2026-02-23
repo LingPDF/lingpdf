@@ -236,7 +236,7 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         run: |
           dotnet tool install --global wix
-          wix extension add WixUI.wixext
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Package Windows
         if: startsWith(matrix.os, 'windows')
@@ -268,10 +268,10 @@ jobs:
 
       - name: Build Windows MSI
         if: startsWith(matrix.os, 'windows')
-        shell: bash
+        shell: pwsh
         run: |
-          # Build MSI using WiX
-          wix build -arch x64 -o "dist/LingPDF-${{ matrix.name }}.msi" wix/lingpdf.wxs
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;" + $env:PATH
+          wix build -d PackageDir="dist/lingpdf-${{ matrix.name }}" wix/lingpdf.wxs -o "dist/LingPDF-${{ matrix.name }}.msi"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
