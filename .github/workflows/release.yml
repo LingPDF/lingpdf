@@ -162,7 +162,7 @@ jobs:
       - name: Package Linux AppImage
         if: startsWith(matrix.os, 'ubuntu')
         run: |
-          PACKAGE_DIR="dist/lingpdf-${{ matrix.name }}"
+          PACKAGE_DIR="dist/LingPDF-${{ matrix.name }}"
           BINARY="target/${{ matrix.target }}/release/lingpdf"
 
           mkdir -p "$PACKAGE_DIR"
@@ -229,7 +229,7 @@ jobs:
 
           # Create tarball in dist folder
           cd dist
-          tar -czvf "lingpdf-${{ matrix.name }}.tar.gz" "lingpdf-${{ matrix.name }}"
+          tar -czvf "LingPDF-${{ matrix.name }}.tar.gz" "LingPDF-${{ matrix.name }}"
           cd ..
 
       - name: Install WiX
@@ -242,7 +242,7 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
-          PACKAGE_DIR="dist/lingpdf-${{ matrix.name }}"
+          PACKAGE_DIR="dist/LingPDF-${{ matrix.name }}"
           BINARY="target/${{ matrix.target }}/release/lingpdf.exe"
 
           mkdir -p "$PACKAGE_DIR"
@@ -257,13 +257,9 @@ jobs:
             cp -r locales "$PACKAGE_DIR/"
           fi
 
-          if [ -f "resources/windows/icon.ico" ]; then
-            cp "resources/windows/icon.ico" "$PACKAGE_DIR/"
-          fi
-
           # Create ZIP in dist folder
           cd dist
-          zip -r "lingpdf-${{ matrix.name }}.zip" "lingpdf-${{ matrix.name }}"
+          zip -r "LingPDF-${{ matrix.name }}.zip" "LingPDF-${{ matrix.name }}"
           cd ..
 
       - name: Build Windows MSI
@@ -271,12 +267,12 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;" + $env:PATH
-          wix build -d PackageDir="dist/lingpdf-${{ matrix.name }}" wix/lingpdf.wxs -o "dist/LingPDF-${{ matrix.name }}.msi"
+          wix build -d PackageDir="dist/LingPDF-${{ matrix.name }}" wix/lingpdf.wxs -o "dist/LingPDF-${{ matrix.name }}.msi"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lingpdf-${{ matrix.name }}
+          name: LingPDF-${{ matrix.name }}
           path: |
             dist/*.zip
             dist/*.dmg

@@ -14,9 +14,6 @@
       <ComponentRef Id="ApplicationShortcut" />
     </Feature>
 
-    <Icon Id="AppIcon.ico" SourceFile="resources\windows\icon.ico" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="LingPDF">
         <Component Id="MainExecutable" Guid="*">
